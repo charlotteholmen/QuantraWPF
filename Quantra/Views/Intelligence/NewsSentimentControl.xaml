@@ -33,31 +33,53 @@
         
         <!-- Header -->
         <Grid Grid.Row="0" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            
-            <TextBlock Grid.Column="0" Text="News Sentiment Analysis" FontSize="22" 
-                       FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
-            
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <TextBox x:Name="SearchTextBox" Width="220" Height="30" 
-                         Margin="0,0,10,0" VerticalContentAlignment="Center"
-                         materialDesign:HintAssist.Hint="Tickers or Topic"
-                         Style="{StaticResource EnhancedTextBoxStyle}"
-                         KeyDown="SearchTextBox_KeyDown"
-                         ToolTip="Enter comma-separated tickers (e.g., NVDA,MSFT) OR a search topic (e.g., 'mergers', 'artificial intelligence'). Auto-detects format."/>
-                <TextBox x:Name="LimitTextBox" Width="60" Height="30" 
-                         Margin="0,0,10,0" VerticalContentAlignment="Center"
-                         materialDesign:HintAssist.Hint="Limit"
-                         Style="{StaticResource EnhancedTextBoxStyle}"
-                         Text="50"
-                         ToolTip="Number of articles to retrieve (1-1000). Default: 50"/>
-                <Button x:Name="LoadButton" Content="Load" Width="80" Height="30" 
-                        Click="LoadButton_Click"
-                        Background="#3E3E56" Foreground="White" BorderBrush="Cyan"/>
-            </StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="News Sentiment Analysis" FontSize="22"
+                       FontWeight="Bold" Foreground="White" VerticalAlignment="Center" Margin="0,0,0,10"/>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Search Mode Radio Buttons -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0">
+                    <TextBlock Text="Search Mode:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <RadioButton x:Name="TickerModeRadio" Content="Tickers"
+                                 GroupName="SearchMode" IsChecked="True"
+                                 Foreground="White" VerticalAlignment="Center" Margin="0,0,15,0"
+                                 Checked="SearchMode_Changed"/>
+                    <RadioButton x:Name="TopicModeRadio" Content="Topics"
+                                 GroupName="SearchMode"
+                                 Foreground="White" VerticalAlignment="Center"
+                                 Checked="SearchMode_Changed"/>
+                </StackPanel>
+
+                <!-- Search Input Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBox x:Name="SearchTextBox" Width="220" Height="30"
+                             Margin="0,0,10,0" VerticalContentAlignment="Center"
+                             materialDesign:HintAssist.Hint="Enter comma-separated tickers"
+                             Style="{StaticResource EnhancedTextBoxStyle}"
+                             KeyDown="SearchTextBox_KeyDown"
+                             ToolTip="Enter comma-separated tickers (e.g., NVDA,MSFT)"/>
+                    <TextBox x:Name="LimitTextBox" Width="60" Height="30"
+                             Margin="0,0,10,0" VerticalContentAlignment="Center"
+                             materialDesign:HintAssist.Hint="Limit"
+                             Style="{StaticResource EnhancedTextBoxStyle}"
+                             Text="50"
+                             ToolTip="Number of articles to retrieve (1-1000). Default: 50"/>
+                    <Button x:Name="LoadButton" Content="Load" Width="80" Height="30"
+                            Click="LoadButton_Click"
+                            Background="#3E3E56" Foreground="White" BorderBrush="Cyan"/>
+                </StackPanel>
+            </Grid>
         </Grid>
         
         <!-- Loading Indicator -->
@@ -191,7 +213,7 @@
         </ListView>
         
         <!-- Status Bar -->
-        <TextBlock Grid.Row="4" x:Name="StatusText" Text="Enter tickers (e.g., NVDA,MSFT) or a topic (e.g., 'mergers', 'artificial intelligence') to load news sentiment." 
+        <TextBlock Grid.Row="4" x:Name="StatusText" Text="Select a search mode and enter tickers (e.g., NVDA,MSFT) or topics (e.g., 'mergers', 'artificial intelligence') to load news sentiment."
                    Foreground="#AAAAAA" Margin="0,10,0,0"/>
     </Grid>
 </UserControl>

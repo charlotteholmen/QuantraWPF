@@ -9,6 +9,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Navigation;
+using MaterialDesignThemes.Wpf;
 using Quantra.DAL.Services;
 using Quantra.Models;
 
@@ -108,6 +109,23 @@ namespace Quantra.Views.Intelligence
             }
         }
 
+        private void SearchMode_Changed(object sender, RoutedEventArgs e)
+        {
+            if (SearchTextBox == null) return; // Control not fully initialized yet
+
+            // Update the hint text and tooltip based on the selected mode
+            if (TickerModeRadio.IsChecked == true)
+            {
+                HintAssist.SetHint(SearchTextBox, "Enter comma-separated tickers");
+                SearchTextBox.ToolTip = "Enter comma-separated tickers (e.g., NVDA,MSFT)";
+            }
+            else if (TopicModeRadio.IsChecked == true)
+            {
+                HintAssist.SetHint(SearchTextBox, "Enter search topics");
+                SearchTextBox.ToolTip = "Enter search topics (e.g., 'mergers', 'artificial intelligence', 'earnings')";
+            }
+        }
+
         private async System.Threading.Tasks.Task LoadNewsSentiment()
         {
             if (_alphaVantageService == null)
@@ -136,31 +154,20 @@ namespace Quantra.Views.Intelligence
                     }
                 }
 
-                // Intelligent search detection
+                // Use the selected mode from radio buttons
                 if (!string.IsNullOrWhiteSpace(searchInput))
                 {
-                    // Check if input looks like a comma-separated ticker list
-                    // Criteria: Contains commas OR is all uppercase letters with 1-5 chars (typical ticker)
-                    bool looksLikeTickers = searchInput.Contains(',') || 
-                                           (searchInput.Length <= 5 && searchInput.All(c => char.IsLetterOrDigit(c) || c == ':' || c == '.'));
-
-                    // Additional check: if it contains spaces and no commas, it's likely a topic/phrase
-                    if (searchInput.Contains(' ') && !searchInput.Contains(','))
+                    if (TickerModeRadio.IsChecked == true)
                     {
-                        looksLikeTickers = false;
-                    }
-
-                    if (looksLikeTickers)
-                    {
-                        // Treat as tickers - convert to uppercase and clean up
+                        // Ticker mode - convert to uppercase and clean up
                         tickers = searchInput.ToUpper().Replace(" ", "");
-                        _loggingService?.Log("Info", $"Detected ticker input: {tickers}");
+                        _loggingService?.Log("Info", $"Ticker mode selected. Input: {tickers}");
                     }
-                    else
+                    else if (TopicModeRadio.IsChecked == true)
                     {
-                        // Treat as topic search - use as-is
+                        // Topic mode - use as-is
                         topics = searchInput;
-                        _loggingService?.Log("Info", $"Detected topic input: {topics}");
+                        _loggingService?.Log("Info", $"Topic mode selected. Input: {topics}");
                     }
                 }
 
