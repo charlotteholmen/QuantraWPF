@@ -312,10 +312,12 @@ namespace Quantra.DAL.Data.Configurations
             builder.HasIndex(p => new { p.SessionId, p.IsClosed });
 
             // Configure relationship with fills
+            // Using NoAction to avoid multiple cascade paths to PaperTradingFills
+            // (Session -> Position -> Fill and Session -> Order -> Fill would create ambiguous cascades in SQL Server)
             builder.HasMany(p => p.Fills)
                    .WithOne(f => f.Position)
                    .HasForeignKey(f => f.PositionEntityId)
-                   .OnDelete(DeleteBehavior.SetNull);
+                   .OnDelete(DeleteBehavior.NoAction);
         }
     }
 
