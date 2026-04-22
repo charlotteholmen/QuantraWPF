@@ -101,6 +101,9 @@ namespace Quantra.Extensions
             services.AddSingleton<AlphaVantageService>();
             services.AddSingleton<IAlphaVantageService>(sp => sp.GetRequiredService<AlphaVantageService>());
 
+            // Real-time stock scanner service
+            services.AddSingleton<StockScannerService>();
+
             services.AddSingleton<HistoricalDataService>();
             services.AddSingleton<IHistoricalDataService>(sp => sp.GetRequiredService<HistoricalDataService>());
 

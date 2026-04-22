@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Quantra.Models;
+using Quantra.Models.Scanner;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -2800,6 +2801,12 @@ namespace Quantra.DAL.Services
                         Day50MovingAverage = TryParseDecimal(data["50DayMovingAverage"]),
                         Day200MovingAverage = TryParseDecimal(data["200DayMovingAverage"]),
                         SharesOutstanding = TryParseLong(data["SharesOutstanding"]),
+                        SharesFloat = TryParseLong(data["SharesFloat"]),
+                        ShortPercentFloat = TryParseDecimal(data["ShortPercentFloat"]) ?? TryParseDecimal(data["ShortPercentFromFloat"]),
+                        ShortPercentOutstanding = TryParseDecimal(data["ShortPercentOutstanding"]) ?? TryParseDecimal(data["ShortPercentFromOutstanding"]),
+                        ShortRatio = TryParseDecimal(data["ShortRatio"]),
+                        SharesShortPriorMonth = TryParseLong(data["SharesShortPriorMonth"]),
+                        AverageDailyVolume = TryParseLong(data["AverageDailyVolume"]) ?? TryParseLong(data["VolumeAverageDaily"]),
                         DividendDate = data["DividendDate"]?.ToString(),
                         ExDividendDate = data["ExDividendDate"]?.ToString(),
                         LastUpdated = DateTime.Now
@@ -3639,6 +3646,227 @@ namespace Quantra.DAL.Services
             catch (Exception ex)
             {
                 _loggingService.LogErrorWithContext(ex, "Error getting top movers data");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets real-time quotes for up to 100 symbols in a single Alpha Vantage
+        /// REALTIME_BULK_QUOTES API call. Symbols are batched internally so callers
+        /// may pass more than 100 without additional handling.
+        /// </summary>
+        /// <param name="symbols">List of ticker symbols.</param>
+        /// <returns>BulkQuotesResponse containing one BulkQuoteData per symbol returned by the API.</returns>
+        public async Task<BulkQuotesResponse> GetRealtimeBulkQuotesAsync(IEnumerable<string> symbols)
+        {
+            var result = new BulkQuotesResponse { LastUpdated = DateTime.Now };
+            if (symbols == null)
+                return result;
+
+            var cleaned = symbols
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => NormalizeSymbol(s.Trim().ToUpperInvariant()))
+                .Distinct()
+                .ToList();
+
+            if (cleaned.Count == 0)
+                return result;
+
+            const int BatchSize = 100; // Alpha Vantage REALTIME_BULK_QUOTES hard limit
+
+            for (int i = 0; i < cleaned.Count; i += BatchSize)
+            {
+                var batch = cleaned.Skip(i).Take(BatchSize).ToList();
+                try
+                {
+                    await WaitForApiLimit();
+
+                    var symbolParam = string.Join(",", batch);
+                    var endpoint = $"query?function=REALTIME_BULK_QUOTES&symbol={Uri.EscapeDataString(symbolParam)}&apikey={_apiKey}";
+                    var entitlementParam = GetEntitlementParameter();
+                    if (!string.IsNullOrEmpty(entitlementParam))
+                    {
+                        endpoint += $"&{entitlementParam}";
+                    }
+
+                    await LogApiCall("REALTIME_BULK_QUOTES", $"count={batch.Count}");
+
+                    var response = await _client.GetAsync(endpoint);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _loggingService?.Log("Warning", $"REALTIME_BULK_QUOTES HTTP {(int)response.StatusCode} for batch of {batch.Count}");
+                        continue;
+                    }
+
+                    var content = await response.Content.ReadAsStringAsync();
+                    if (string.IsNullOrWhiteSpace(content))
+                        continue;
+
+                    var json = JObject.Parse(content);
+
+                    if (result.Endpoint == null)
+                        result.Endpoint = json["endpoint"]?.ToString();
+                    if (result.Message == null)
+                        result.Message = json["message"]?.ToString();
+
+                    if (json["data"] is JArray data)
+                    {
+                        foreach (var item in data)
+                        {
+                            result.Quotes.Add(ParseBulkQuote(item));
+                        }
+                    }
+                    else if (json["Information"] != null || json["Note"] != null)
+                    {
+                        // Rate limit / premium-only message - surface via Message
+                        result.Message = json["Information"]?.ToString() ?? json["Note"]?.ToString();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _loggingService?.LogErrorWithContext(ex, $"Error fetching REALTIME_BULK_QUOTES batch of {batch.Count}");
+                }
+            }
+
+            return result;
+        }
+
+        private BulkQuoteData ParseBulkQuote(JToken item)
+        {
+            var quote = new BulkQuoteData
+            {
+                Symbol = item["symbol"]?.ToString(),
+                Open = TryParseDouble(item["open"]),
+                High = TryParseDouble(item["high"]),
+                Low = TryParseDouble(item["low"]),
+                Close = TryParseDouble(item["close"]),
+                Volume = (long)TryParseDouble(item["volume"]),
+                PreviousClose = TryParseDouble(item["previous_close"]),
+                Change = TryParseDouble(item["change"]),
+                ChangePercent = TryParsePercentage(item["change_percent"])
+            };
+
+            // Timestamp parsing is best-effort; Alpha Vantage returns ISO-ish strings
+            var tsText = item["timestamp"]?.ToString();
+            if (!string.IsNullOrEmpty(tsText) && DateTime.TryParse(tsText,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                    out var ts))
+            {
+                quote.Timestamp = ts;
+            }
+            else
+            {
+                quote.Timestamp = DateTime.UtcNow;
+            }
+
+            // Extended hours fields (pre/post market) are optional
+            var ehq = item["extended_hours_quote"];
+            if (ehq != null && ehq.Type != JTokenType.Null)
+                quote.ExtendedHoursQuote = TryParseDouble(ehq);
+            var ehc = item["extended_hours_change"];
+            if (ehc != null && ehc.Type != JTokenType.Null)
+                quote.ExtendedHoursChange = TryParseDouble(ehc);
+            var ehcp = item["extended_hours_change_percent"];
+            if (ehcp != null && ehcp.Type != JTokenType.Null)
+                quote.ExtendedHoursChangePercent = TryParsePercentage(ehcp);
+
+            return quote;
+        }
+
+        /// <summary>
+        /// Returns the pre-market trading volume for the most recent session (bars between 04:00
+        /// and 09:29:59 US Eastern Time) using TIME_SERIES_INTRADAY with extended_hours=true.
+        /// Returns null if the data is unavailable (e.g. free tier, rate limit, or no pre-market trades).
+        /// </summary>
+        /// <param name="symbol">Ticker symbol.</param>
+        /// <returns>Summed pre-market volume and the latest pre-market bar timestamp (ET), or null.</returns>
+        public async Task<(long Volume, DateTime AsOfEt)?> GetPreMarketVolumeAsync(string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol))
+                return null;
+
+            try
+            {
+                await WaitForApiLimit();
+
+                var norm = NormalizeSymbol(symbol.Trim().ToUpperInvariant());
+                // 5-minute bars, 100-bar compact window (~8.3h) reliably covers the 04:00-09:30 ET
+                // pre-market session for any time of day up through early afternoon. extended_hours=true
+                // includes pre/post session bars, which are otherwise omitted.
+                var endpoint = $"query?function=TIME_SERIES_INTRADAY&symbol={Uri.EscapeDataString(norm)}" +
+                               $"&interval=5min&outputsize=compact&extended_hours=true&apikey={_apiKey}";
+                var entitlementParam = GetEntitlementParameter();
+                if (!string.IsNullOrEmpty(entitlementParam))
+                    endpoint += $"&{entitlementParam}";
+
+                await LogApiCall("TIME_SERIES_INTRADAY_PREMARKET", norm);
+
+                var response = await _client.GetAsync(endpoint);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _loggingService?.Log("Warning",
+                        $"Pre-market fetch HTTP {(int)response.StatusCode} for {norm}");
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(content))
+                    return null;
+
+                var json = JObject.Parse(content);
+                if (json["Information"] != null || json["Note"] != null || json["Error Message"] != null)
+                    return null;
+
+                var series = json["Time Series (5min)"] as JObject;
+                if (series == null || series.Count == 0)
+                    return null;
+
+                // Alpha Vantage timestamps for intraday endpoints are in US Eastern Time by default.
+                // Parse each key (e.g. "2026-04-21 08:55:00") and aggregate bars with Date equal to
+                // the most recent trading day AND time-of-day in [04:00, 09:30).
+                var parsed = new List<(DateTime TsEt, long Volume)>();
+                foreach (var kvp in series)
+                {
+                    if (!DateTime.TryParseExact(kvp.Key, "yyyy-MM-dd HH:mm:ss",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out var ts))
+                        continue;
+
+                    long vol = (long)TryParseDouble(kvp.Value?["5. volume"]);
+                    parsed.Add((ts, vol));
+                }
+
+                if (parsed.Count == 0)
+                    return null;
+
+                // Most recent bar's date defines "today" for the pre-market aggregation.
+                var latestDate = parsed.Max(p => p.TsEt).Date;
+                var preMarketStart = new TimeSpan(4, 0, 0);
+                var regularOpen = new TimeSpan(9, 30, 0);
+
+                long totalVolume = 0;
+                DateTime latestPreMarketBar = DateTime.MinValue;
+                foreach (var p in parsed)
+                {
+                    if (p.TsEt.Date != latestDate) continue;
+                    var tod = p.TsEt.TimeOfDay;
+                    if (tod < preMarketStart || tod >= regularOpen) continue;
+
+                    totalVolume += p.Volume;
+                    if (p.TsEt > latestPreMarketBar)
+                        latestPreMarketBar = p.TsEt;
+                }
+
+                if (latestPreMarketBar == DateTime.MinValue)
+                    return null;
+
+                return (totalVolume, latestPreMarketBar);
+            }
+            catch (Exception ex)
+            {
+                _loggingService?.LogErrorWithContext(ex,
+                    $"Error fetching pre-market volume for {symbol}");
                 return null;
             }
         }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Quantra;
 using Quantra.Models;
+using Quantra.Models.Scanner;
 
 public interface IAlphaVantageService
 {
@@ -129,6 +130,18 @@ public interface IAlphaVantageService
     /// </summary>
     /// <returns>TopMoversResponse containing lists of top gainers, losers, and most active</returns>
     Task<TopMoversResponse> GetTopMoversAsync();
+
+    /// <summary>
+    /// Gets real-time bulk quotes (up to 100 symbols per underlying API call) via the
+    /// Alpha Vantage REALTIME_BULK_QUOTES endpoint. Batches larger inputs internally.
+    /// </summary>
+    Task<BulkQuotesResponse> GetRealtimeBulkQuotesAsync(IEnumerable<string> symbols);
+
+    /// <summary>
+    /// Returns pre-market trading volume for the most recent session (04:00-09:29 ET),
+    /// aggregated from extended-hours intraday bars. Returns null if unavailable.
+    /// </summary>
+    Task<(long Volume, DateTime AsOfEt)?> GetPreMarketVolumeAsync(string symbol);
 
     /// <summary>
     /// Gets daily historical price data for a symbol.

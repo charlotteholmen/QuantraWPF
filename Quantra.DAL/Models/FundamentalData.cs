@@ -56,6 +56,12 @@ namespace Quantra.Models
 
         // Shares Data
         public long? SharesOutstanding { get; set; }
+        public long? SharesFloat { get; set; }
+        public decimal? ShortPercentFloat { get; set; }
+        public decimal? ShortPercentOutstanding { get; set; }
+        public decimal? ShortRatio { get; set; }
+        public long? SharesShortPriorMonth { get; set; }
+        public long? AverageDailyVolume { get; set; }
         public string DividendDate { get; set; }
         public string ExDividendDate { get; set; }
 

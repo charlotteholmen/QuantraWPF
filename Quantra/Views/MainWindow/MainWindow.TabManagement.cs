@@ -624,6 +624,7 @@ namespace Quantra
                             "Paper Trading" => CreatePaperTradingCard(),
                             "Signal Creation" => CreateSignalCreationCard(),
                             "Stock Explorer V2" => CreateStockExplorerV2Card(),
+                            "Stock Scanner" => CreateStockScannerCard(),
                             _ => throw new NotSupportedException($"Control type '{controlType}' is not supported.")
                         };
                     }
@@ -2192,6 +2193,7 @@ namespace Quantra
                     "Paper Trading" => CreatePaperTradingCard(),
                     "Signal Creation" => CreateSignalCreationCard(),
                     "Stock Explorer V2" => CreateStockExplorerV2Card(),
+                    "Stock Scanner" => CreateStockScannerCard(),
                     _ => throw new NotSupportedException($"Control type '{controlType}' is not supported.")
                 };
                 
@@ -2578,6 +2580,47 @@ namespace Quantra
                 errorPanel.Children.Add(new TextBlock
                 {
                     Text = "Error: Could not load Top Movers",
+                    Foreground = Brushes.Red,
+                    FontWeight = FontWeights.Bold,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(10),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+                errorPanel.Children.Add(new TextBlock
+                {
+                    Text = ex.Message,
+                    Foreground = Brushes.White,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(10),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                return errorPanel;
+            }
+        }
+
+        private UIElement CreateStockScannerCard()
+        {
+            try
+            {
+                var scanner = new Views.Scanner.StockScannerControl();
+                scanner.Width = double.NaN;
+                scanner.Height = double.NaN;
+                scanner.HorizontalAlignment = HorizontalAlignment.Stretch;
+                scanner.VerticalAlignment = VerticalAlignment.Stretch;
+                scanner.MinWidth = 500;
+                scanner.MinHeight = 300;
+                scanner.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                scanner.Arrange(new Rect(0, 0, scanner.DesiredSize.Width, scanner.DesiredSize.Height));
+                scanner.UpdateLayout();
+                return scanner;
+            }
+            catch (Exception ex)
+            {
+                var errorPanel = new StackPanel();
+                errorPanel.Children.Add(new TextBlock
+                {
+                    Text = "Error: Could not load Stock Scanner",
                     Foreground = Brushes.Red,
                     FontWeight = FontWeights.Bold,
                     TextWrapping = TextWrapping.Wrap,

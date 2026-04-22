@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Quantra.Models;
+using Quantra.Models.Scanner;
 
 namespace Quantra.DAL.Services.Interfaces
 {
@@ -59,6 +60,8 @@ namespace Quantra.DAL.Services.Interfaces
             string sort = "LATEST",
             int limit = 50);
         Task<TopMoversResponse> GetTopMoversAsync();
+        Task<BulkQuotesResponse> GetRealtimeBulkQuotesAsync(IEnumerable<string> symbols);
+        Task<(long Volume, DateTime AsOfEt)?> GetPreMarketVolumeAsync(string symbol);
         Task<InsiderTransactionsResponse> GetInsiderTransactionsAsync(string symbol);
 
         // Analytics API Methods

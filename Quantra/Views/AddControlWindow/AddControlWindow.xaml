@@ -212,6 +212,13 @@
                                                 <TextBlock Text="Options Explorer"/>
                                             </StackPanel>
                                         </ComboBoxItem>
+                                        <!-- Add Stock Scanner control option -->
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Radar" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock Text="Stock Scanner"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
                                     </ComboBox>
                                 </StackPanel>
                             </materialDesign:Card>
